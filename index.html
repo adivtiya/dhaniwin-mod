@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dhaniwin Pro AI Predictor</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: Arial, sans-serif; background-color: #0f172a; }
+        #game-frame { width: 100%; height: 100%; border: none; }
+        #floating-bubble {
+            position: fixed; bottom: 30px; right: 20px; width: 50px; height: 50px; background: #eab308;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5); cursor: pointer; z-index: 999999; transition: transform 0.2s;
+        }
+        #floating-bubble:active { transform: scale(0.9); }
+        #dw-predictor-widget {
+            display: none; position: fixed; bottom: 30px; right: 20px; width: 180px;
+            background: rgba(15, 23, 42, 0.95); border: 2px solid #eab308; border-radius: 12px;
+            padding: 12px; color: white; z-index: 999999; box-shadow: 0 10px 25px rgba(0,0,0,0.7);
+            text-align: center; backdrop-filter: blur(5px);
+        }
+        .close-btn { position: absolute; top: 5px; right: 8px; color: #ef4444; font-size: 14px; font-weight: bold; cursor: pointer; }
+        .dw-title { font-size: 13px; font-weight: bold; color: #eab308; margin-bottom: 8px; }
+        .dw-period { font-size: 12px; color: #94a3b8; margin-bottom: 5px; font-weight: bold; }
+        .dw-label { font-size: 10px; color: #cbd5e1; }
+        .dw-pred { font-size: 26px; font-weight: 900; margin: 5px 0; letter-spacing: 1px; }
+        .dw-big { color: #22c55e; }
+        .dw-small { color: #ec4899; }
+        .dw-status { font-size: 10px; color: #64748b; margin-top: 5px; }
+        .dw-accuracy { font-size: 11px; color: #06b6d4; margin-top: 2px; font-weight: bold;}
+    </style>
+</head>
+<body>
+
+    <iframe id="game-frame" src="https://dhaniwin.org" allowfullscreen></iframe>
+
+    <div id="floating-bubble" onclick="togglePredictor(true)">🤖</div>
+
+    <div id="dw-predictor-widget">
+        <div class="close-btn" onclick="togglePredictor(false)">✖</div>
+        <div class="dw-title">Pro AI Predictor</div>
+        <div class="dw-period" id="dw-period">Target: Loading...</div>
+        <div class="dw-label">Expected Next Outcome:</div>
+        <div class="dw-pred" id="dw-prediction">...</div>
+        <div class="dw-accuracy" id="dw-accuracy">Pattern Match: --%</div>
+        <div class="dw-status" id="dw-status">Connecting...</div>
+    </div>
+
+    <script>
+        function togglePredictor(show) {
+            document.getElementById('floating-bubble').style.display = show ? 'none' : 'flex';
+            document.getElementById('dw-predictor-widget').style.display = show ? 'block' : 'none';
+        }
+
+        const SUPABASE_URL = "https://ridnmxfctzfntbfpzjnd.supabase.co";
+        const SUPABASE_KEY = "sb_publishable_AvI5aU3gVjj2r7PxCcfaWA_L7WOiy7m";
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        async function fetchAndPredict() {
+            if (document.getElementById('dw-predictor-widget').style.display === 'none') return;
+            document.getElementById('dw-status').innerText = "Analyzing Patterns...";
+
+            try {
+                let { data: rounds, error } = await supabaseClient
+                    .from('rounds')
+                    .select('*')
+                    .order('period', { ascending: false })
+                    .limit(100);
+
+                if (error) throw error;
+
+                if (rounds && rounds.length > 3) {
+                    const latest = rounds[0];
+                    
+                    // Asli Fix Yahan Hai (Agla Period nikalna)
+                    let targetPeriodStr = "";
+                    try {
+                        targetPeriodStr = (BigInt(latest.period) + 1n).toString();
+                    } catch(e) {
+                        targetPeriodStr = (parseInt(latest.period) + 1).toString();
+                    }
+
+                    document.getElementById('dw-period').innerText = "🎯 Target Period: ..." + targetPeriodStr.slice(-4);
+
+                    const history = rounds.map(r => r.outcome).reverse();
+                    const patternLength = 3;
+                    const currentPattern = history.slice(-patternLength); 
+                    
+                    let bigCount = 0;
+                    let smallCount = 0;
+
+                    for (let i = 0; i <= history.length - patternLength - 1; i++) {
+                        let isMatch = true;
+                        for (let j = 0; j < patternLength; j++) {
+                            if (history[i + j] !== currentPattern[j]) {
+                                isMatch = false;
+                                break;
+                            }
+                        }
+                        if (isMatch) {
+                            let nextResult = history[i + patternLength];
+                            if (nextResult === 'BIG') bigCount++;
+                            if (nextResult === 'SMALL') smallCount++;
+                        }
+                    }
+
+                    let finalPrediction = "";
+                    let accuracy = 0;
+                    let totalMatches = bigCount + smallCount;
+
+                    if (totalMatches > 0) {
+                        if (bigCount > smallCount) {
+                            finalPrediction = 'BIG';
+                            accuracy = Math.round((bigCount / totalMatches) * 100);
+                        } else if (smallCount > bigCount) {
+                            finalPrediction = 'SMALL';
+                            accuracy = Math.round((smallCount / totalMatches) * 100);
+                        } else {
+                            finalPrediction = currentPattern[2] === 'BIG' ? 'SMALL' : 'BIG';
+                            accuracy = 50;
+                        }
+                    } else {
+                        finalPrediction = currentPattern[2] === 'BIG' ? 'SMALL' : 'BIG';
+                        accuracy = 55;
+                    }
+
+                    const predEl = document.getElementById('dw-prediction');
+                    predEl.innerText = finalPrediction;
+                    predEl.className = 'dw-pred ' + (finalPrediction === 'BIG' ? 'dw-big' : 'dw-small');
+                    
+                    document.getElementById('dw-accuracy').innerText = `Match: ${accuracy}% (${totalMatches} patterns)`;
+                    document.getElementById('dw-status').innerText = "Live AI ✅";
+                }
+            } catch (err) {
+                console.error(err);
+                document.getElementById('dw-status').innerText = "Error ❌";
+            }
+        }
+
+        fetchAndPredict();
+        
+        // Refresh rate thoda fast kar diya taaki PowerShell ke data feed karte hi yahan update ho jaye
+        setInterval(fetchAndPredict, 5000); 
+    </script>
+</body>
+</html>
