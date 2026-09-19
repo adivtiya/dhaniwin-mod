@@ -1,5 +1,6 @@
 import time
-import cloudscraper
+import requests
+from curl_cffi import requests as cffi_requests
 from datetime import datetime, timedelta
 
 SupabaseUrl = "https://ridnmxfctzfntbfpzjnd.supabase.co/rest/v1/rounds"
@@ -13,32 +14,27 @@ SupabaseHeaders = {
     "Prefer": "return=representation"
 }
 
-# API ko dhokha dene ke liye dhaniwin ka reference
+# API ko dhokha dene ke liye
 ApiHeaders = {
     "Referer": "https://dhaniwin.org/",
-    "Origin": "https://dhaniwin.org"
+    "Origin": "https://dhaniwin.org",
+    "Accept": "application/json, text/plain, */*"
 }
 
-print("🚀 GitHub Actions + Cloudflare Bypass Scraper Started!")
-
-# Cloudscraper ka bypass engine (Real Chrome ki tarah act karega)
-scraper = cloudscraper.create_scraper(browser={
-    'browser': 'chrome',
-    'platform': 'windows',
-    'desktop': True
-})
+print("🚀 GitHub Actions + CURL_CFFI Ultimate Bypass Started!")
 
 end_time = datetime.now() + timedelta(hours=5, minutes=45)
 
 while datetime.now() < end_time:
     try:
-        last_req = scraper.get(f"{SupabaseUrl}?select=period&order=period.desc&limit=1", headers=SupabaseHeaders)
+        # Supabase se normal request
+        last_req = requests.get(f"{SupabaseUrl}?select=period&order=period.desc&limit=1", headers=SupabaseHeaders)
         last_saved_period = "0"
         if last_req.status_code == 200 and len(last_req.json()) > 0:
             last_saved_period = str(last_req.json()[0]['period'])
 
-        # API ko nakli headers ke sath hit karo
-        api_req = scraper.get(ApiUrl, headers=ApiHeaders)
+        # API par HAMLA - Real Chrome Impersonation ke sath
+        api_req = cffi_requests.get(ApiUrl, headers=ApiHeaders, impersonate="chrome110")
         
         if api_req.status_code == 200:
             data = api_req.json()
@@ -58,13 +54,13 @@ while datetime.now() < end_time:
             
             if len(new_rounds) > 0:
                 new_rounds.sort(key=lambda x: int(x["period"])) 
-                res = scraper.post(SupabaseUrl, headers=SupabaseHeaders, json=new_rounds)
+                res = requests.post(SupabaseUrl, headers=SupabaseHeaders, json=new_rounds)
                 if res.status_code == 201:
                     print(f"✅ HACK SUCCESS: Saved {len(new_rounds)} rounds! Latest: {new_rounds[-1]['period']}")
                 else:
                     print(f"❌ Supabase Error: {res.text}")
         else:
-            print(f"❌ API Blocked! Status: {api_req.status_code}")
+            print(f"❌ API Blocked! Status: {api_req.status_code} | Response: {api_req.text[:100]}")
                 
     except Exception as e:
         print(f"⚠️ Code Crash Error: {e}") 
