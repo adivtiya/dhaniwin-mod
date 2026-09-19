@@ -1,12 +1,11 @@
 import time
-import requests
+import cloudscraper
 from datetime import datetime, timedelta
 
 SupabaseUrl = "https://ridnmxfctzfntbfpzjnd.supabase.co/rest/v1/rounds"
 SupabaseKey = "sb_publishable_AvI5aU3gVjj2r7PxCcfaWA_L7WOiy7m"
 ApiUrl = "https://draw.ar-lottery01.com/WinGo/WinGo_30S/GetHistoryIssuePage.json"
 
-# Supabase ke liye headers
 SupabaseHeaders = {
     "apikey": SupabaseKey,
     "Authorization": f"Bearer {SupabaseKey}",
@@ -14,24 +13,33 @@ SupabaseHeaders = {
     "Prefer": "return=representation"
 }
 
-# API ko bewakoof banane ke liye Chrome browser ka User-Agent
+# API ko dhokha dene ke liye dhaniwin ka reference
 ApiHeaders = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+    "Referer": "https://dhaniwin.org/",
+    "Origin": "https://dhaniwin.org"
 }
 
-print("🚀 GitHub Actions 24/7 Cloud Scraper Started!")
+print("🚀 GitHub Actions + Cloudflare Bypass Scraper Started!")
+
+# Cloudscraper ka bypass engine (Real Chrome ki tarah act karega)
+scraper = cloudscraper.create_scraper(browser={
+    'browser': 'chrome',
+    'platform': 'windows',
+    'desktop': True
+})
 
 end_time = datetime.now() + timedelta(hours=5, minutes=45)
 
 while datetime.now() < end_time:
     try:
-        last_req = requests.get(f"{SupabaseUrl}?select=period&order=period.desc&limit=1", headers=SupabaseHeaders)
+        last_req = scraper.get(f"{SupabaseUrl}?select=period&order=period.desc&limit=1", headers=SupabaseHeaders)
         last_saved_period = "0"
         if last_req.status_code == 200 and len(last_req.json()) > 0:
             last_saved_period = str(last_req.json()[0]['period'])
 
-        # Yahan nakli headers bhej rahe hain
-        api_req = requests.get(ApiUrl, headers=ApiHeaders)
+        # API ko nakli headers ke sath hit karo
+        api_req = scraper.get(ApiUrl, headers=ApiHeaders)
+        
         if api_req.status_code == 200:
             data = api_req.json()
             records = data.get('data', {}).get('list') or data.get('data', {}).get('records') or data.get('data', [])
@@ -50,17 +58,17 @@ while datetime.now() < end_time:
             
             if len(new_rounds) > 0:
                 new_rounds.sort(key=lambda x: int(x["period"])) 
-                res = requests.post(SupabaseUrl, headers=SupabaseHeaders, json=new_rounds)
+                res = scraper.post(SupabaseUrl, headers=SupabaseHeaders, json=new_rounds)
                 if res.status_code == 201:
-                    print(f"✅ Saved {len(new_rounds)} rounds! Latest: {new_rounds[-1]['period']}")
+                    print(f"✅ HACK SUCCESS: Saved {len(new_rounds)} rounds! Latest: {new_rounds[-1]['period']}")
                 else:
                     print(f"❌ Supabase Error: {res.text}")
         else:
-            print(f"❌ API Blocked or Down! Status: {api_req.status_code}")
+            print(f"❌ API Blocked! Status: {api_req.status_code}")
                 
     except Exception as e:
         print(f"⚠️ Code Crash Error: {e}") 
         
     time.sleep(10)
 
-print("⏳ Cycle complete.")
+print("⏳ Cycle complete. Exiting for next worker.")
