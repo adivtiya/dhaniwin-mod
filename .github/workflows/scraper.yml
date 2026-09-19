@@ -1,0 +1,24 @@
+name: 24/7 Auto Scraper
+
+on:
+  schedule:
+    - cron: '0 */5 * * *'  # Har 5 ghante baad naya server chalayega
+  workflow_dispatch:       # Tujhe manual on karne ka button dega
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run Scraper
+        run: python cloud_scraper.py
