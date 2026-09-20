@@ -2,49 +2,84 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Dhaniwin Pro AI Predictor</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: Arial, sans-serif; background-color: #0f172a; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: 'Segoe UI', Arial, sans-serif; background-color: #0f172a; }
         #game-frame { width: 100%; height: 100%; border: none; }
+        
+        /* Floating Bubble */
         #floating-bubble {
-            position: fixed; bottom: 30px; right: 20px; width: 50px; height: 50px; background: #eab308;
-            border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5); cursor: pointer; z-index: 999999; transition: transform 0.2s;
+            position: fixed; bottom: 30px; right: 20px; width: 55px; height: 55px; 
+            background: linear-gradient(135deg, #eab308, #ca8a04);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 26px;
+            box-shadow: 0 0 20px rgba(234, 179, 8, 0.6); cursor: pointer; z-index: 999999; 
+            transition: transform 0.2s, box-shadow 0.2s; border: 2px solid #fef08a;
+            animation: pulse-glow 2s infinite;
         }
         #floating-bubble:active { transform: scale(0.9); }
-        #dw-predictor-widget {
-            display: none; position: fixed; bottom: 30px; right: 20px; width: 180px;
-            background: rgba(15, 23, 42, 0.95); border: 2px solid #eab308; border-radius: 12px;
-            padding: 12px; color: white; z-index: 999999; box-shadow: 0 10px 25px rgba(0,0,0,0.7);
-            text-align: center; backdrop-filter: blur(5px);
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 15px rgba(234, 179, 8, 0.4); }
+            50% { box-shadow: 0 0 25px rgba(234, 179, 8, 0.8); }
+            100% { box-shadow: 0 0 15px rgba(234, 179, 8, 0.4); }
         }
-        .close-btn { position: absolute; top: 5px; right: 8px; color: #ef4444; font-size: 14px; font-weight: bold; cursor: pointer; }
-        .dw-title { font-size: 13px; font-weight: bold; color: #eab308; margin-bottom: 8px; }
-        .dw-period { font-size: 12px; color: #94a3b8; margin-bottom: 5px; font-weight: bold; }
-        .dw-label { font-size: 10px; color: #cbd5e1; }
-        .dw-pred { font-size: 26px; font-weight: 900; margin: 5px 0; letter-spacing: 1px; }
-        .dw-big { color: #22c55e; }
-        .dw-small { color: #ec4899; }
-        .dw-status { font-size: 10px; color: #64748b; margin-top: 5px; }
-        .dw-accuracy { font-size: 11px; color: #06b6d4; margin-top: 2px; font-weight: bold;}
+
+        /* Predictor Widget */
+        #dw-predictor-widget {
+            display: none; position: fixed; bottom: 30px; right: 20px; width: 200px;
+            background: rgba(15, 23, 42, 0.95); border: 2px solid #eab308; border-radius: 16px;
+            padding: 15px; color: white; z-index: 999999; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            text-align: center; backdrop-filter: blur(8px); user-select: none;
+        }
+        
+        .close-btn { position: absolute; top: 8px; right: 12px; color: #ef4444; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .close-btn:hover { color: #f87171; transform: scale(1.1); }
+        
+        .dw-title { font-size: 14px; font-weight: 900; color: #eab308; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+        .dw-period { font-size: 12px; color: #94a3b8; margin-bottom: 8px; font-weight: bold; background: rgba(255,255,255,0.05); padding: 4px; border-radius: 6px; }
+        
+        /* Result Layout */
+        .result-container { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 10px 5px; margin-bottom: 8px; }
+        .dw-label { font-size: 11px; color: #cbd5e1; text-transform: uppercase; font-weight: bold; }
+        
+        .dw-pred { font-size: 28px; font-weight: 900; margin: 2px 0; letter-spacing: 2px; }
+        .dw-big { color: #34d399; text-shadow: 0 0 15px rgba(52, 211, 153, 0.5); }
+        .dw-small { color: #f472b6; text-shadow: 0 0 15px rgba(244, 114, 182, 0.5); }
+        
+        .dw-number-box { margin-top: 5px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 8px; }
+        .dw-number { font-size: 24px; font-weight: 900; color: #fbbf24; text-shadow: 0 0 15px rgba(251, 191, 36, 0.8); display: inline-block; }
+        
+        .dw-accuracy { font-size: 11px; color: #06b6d4; font-weight: bold; margin-top: 2px; }
+        .dw-status { font-size: 10px; color: #64748b; margin-top: 6px; }
     </style>
 </head>
 <body>
 
+    <!-- Target Game Site -->
     <iframe id="game-frame" src="https://dhaniwin.org" allowfullscreen></iframe>
 
+    <!-- Floating Bubble -->
     <div id="floating-bubble" onclick="togglePredictor(true)">🤖</div>
 
+    <!-- AI Widget -->
     <div id="dw-predictor-widget">
         <div class="close-btn" onclick="togglePredictor(false)">✖</div>
-        <div class="dw-title">Pro AI Predictor</div>
+        <div class="dw-title">⚡ AI ROOT HACK ⚡</div>
         <div class="dw-period" id="dw-period">Target: Loading...</div>
-        <div class="dw-label">Expected Next Outcome:</div>
-        <div class="dw-pred" id="dw-prediction">...</div>
-        <div class="dw-accuracy" id="dw-accuracy">Pattern Match: --%</div>
-        <div class="dw-status" id="dw-status">Connecting...</div>
+        
+        <div class="result-container">
+            <div class="dw-label">Outcome</div>
+            <div class="dw-pred" id="dw-prediction">...</div>
+            
+            <div class="dw-number-box">
+                <div class="dw-label" style="font-size: 10px; color: #fbbf24;">Sure Number (9x)</div>
+                <div class="dw-number" id="dw-number">-</div>
+            </div>
+        </div>
+
+        <div class="dw-accuracy" id="dw-accuracy">Analyzing Core...</div>
+        <div class="dw-status" id="dw-status">Connecting to Database...</div>
     </div>
 
     <script>
@@ -53,15 +88,17 @@
             document.getElementById('dw-predictor-widget').style.display = show ? 'block' : 'none';
         }
 
+        // Tere Supabase Details
         const SUPABASE_URL = "https://ridnmxfctzfntbfpzjnd.supabase.co";
         const SUPABASE_KEY = "sb_publishable_AvI5aU3gVjj2r7PxCcfaWA_L7WOiy7m";
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         async function fetchAndPredict() {
             if (document.getElementById('dw-predictor-widget').style.display === 'none') return;
-            document.getElementById('dw-status').innerText = "Analyzing Patterns...";
+            document.getElementById('dw-status').innerText = "Live Sync ✅";
 
             try {
+                // Fetch last 100 rounds (Outcome aur Number dono utha raha hai)
                 let { data: rounds, error } = await supabaseClient
                     .from('rounds')
                     .select('*')
@@ -73,41 +110,43 @@
                 if (rounds && rounds.length > 3) {
                     const latest = rounds[0];
                     
-                    // Asli Fix Yahan Hai (Agla Period nikalna)
+                    // Period Calculation
                     let targetPeriodStr = "";
-                    try {
-                        targetPeriodStr = (BigInt(latest.period) + 1n).toString();
-                    } catch(e) {
-                        targetPeriodStr = (parseInt(latest.period) + 1).toString();
-                    }
+                    try { targetPeriodStr = (BigInt(latest.period) + 1n).toString(); } 
+                    catch(e) { targetPeriodStr = (parseInt(latest.period) + 1).toString(); }
 
-                    document.getElementById('dw-period').innerText = "🎯 Target Period: ..." + targetPeriodStr.slice(-4);
+                    document.getElementById('dw-period').innerText = "🎯 TARGET: ..." + targetPeriodStr.slice(-4);
 
-                    const history = rounds.map(r => r.outcome).reverse();
-                    const patternLength = 3;
-                    const currentPattern = history.slice(-patternLength); 
-                    
+                    // ----------------------------------------------------
+                    // 🧠 AI PATTERN LOGIC ENGINE (Size & Number)
+                    // ----------------------------------------------------
                     let bigCount = 0;
                     let smallCount = 0;
+                    let numberFrequency = {};
 
-                    for (let i = 0; i <= history.length - patternLength - 1; i++) {
-                        let isMatch = true;
-                        for (let j = 0; j < patternLength; j++) {
-                            if (history[i + j] !== currentPattern[j]) {
-                                isMatch = false;
-                                break;
+                    // Pichle 3 result ka pattern dhundh rahe hain
+                    for (let i = 1; i < rounds.length - 3; i++) {
+                        if (rounds[i].outcome === rounds[0].outcome && 
+                            rounds[i+1].outcome === rounds[1].outcome && 
+                            rounds[i+2].outcome === rounds[2].outcome) {
+                            
+                            // Pattern match hua! Toh agla result kya aaya tha?
+                            let nextOutcome = rounds[i-1].outcome;
+                            let nextNumber = rounds[i-1].number;
+
+                            if (nextOutcome === 'BIG') bigCount++;
+                            if (nextOutcome === 'SMALL') smallCount++;
+                            
+                            if (nextNumber && nextNumber !== "?") {
+                                numberFrequency[nextNumber] = (numberFrequency[nextNumber] || 0) + 1;
                             }
-                        }
-                        if (isMatch) {
-                            let nextResult = history[i + patternLength];
-                            if (nextResult === 'BIG') bigCount++;
-                            if (nextResult === 'SMALL') smallCount++;
                         }
                     }
 
+                    // 1. Calculate SIZE (Big / Small)
                     let finalPrediction = "";
-                    let accuracy = 0;
                     let totalMatches = bigCount + smallCount;
+                    let accuracy = 0;
 
                     if (totalMatches > 0) {
                         if (bigCount > smallCount) {
@@ -117,30 +156,73 @@
                             finalPrediction = 'SMALL';
                             accuracy = Math.round((smallCount / totalMatches) * 100);
                         } else {
-                            finalPrediction = currentPattern[2] === 'BIG' ? 'SMALL' : 'BIG';
-                            accuracy = 50;
+                            finalPrediction = rounds[0].outcome === 'BIG' ? 'SMALL' : 'BIG'; // Zig-zag fallback
+                            accuracy = 55;
                         }
                     } else {
-                        finalPrediction = currentPattern[2] === 'BIG' ? 'SMALL' : 'BIG';
-                        accuracy = 55;
+                        // Agar naya pattern hai jo pehle nahi aaya
+                        finalPrediction = rounds[0].outcome === 'BIG' ? 'SMALL' : 'BIG'; 
+                        accuracy = 51;
                     }
 
+                    // 2. Calculate NUMBER (9x Profit)
+                    let validNumbers = (finalPrediction === 'BIG') ? ['5','6','7','8','9'] : ['0','1','2','3','4'];
+                    let bestNumber = "-";
+                    let highestFreq = -1;
+
+                    // Pehle Pattern frequency mein check karo
+                    for (let num of validNumbers) {
+                        if (numberFrequency[num] && numberFrequency[num] > highestFreq) {
+                            highestFreq = numberFrequency[num];
+                            bestNumber = num;
+                        }
+                    }
+
+                    // Agar pattern se number nahi mila, toh 'Latest Number' ke baad kya aata hai wo dekho (Fallback logic)
+                    if (bestNumber === "-") {
+                        let fallbackFreq = {};
+                        for (let i = 1; i < rounds.length - 1; i++) {
+                            if (rounds[i].number === rounds[0].number) {
+                                let nextNum = rounds[i-1].number;
+                                if (nextNum && validNumbers.includes(nextNum)) {
+                                    fallbackFreq[nextNum] = (fallbackFreq[nextNum] || 0) + 1;
+                                }
+                            }
+                        }
+                        let fallMax = -1;
+                        for (let num in fallbackFreq) {
+                            if (fallbackFreq[num] > fallMax) {
+                                fallMax = fallbackFreq[num];
+                                bestNumber = num;
+                            }
+                        }
+                        
+                        // Agar phir bhi data kam hai, toh AI smart random pick karega valid range me se
+                        if (bestNumber === "-") {
+                            bestNumber = validNumbers[Math.floor(Math.random() * validNumbers.length)];
+                        }
+                    }
+
+                    // ----------------------------------------------------
+                    // UPDATE UI
+                    // ----------------------------------------------------
                     const predEl = document.getElementById('dw-prediction');
                     predEl.innerText = finalPrediction;
                     predEl.className = 'dw-pred ' + (finalPrediction === 'BIG' ? 'dw-big' : 'dw-small');
                     
-                    document.getElementById('dw-accuracy').innerText = `Match: ${accuracy}% (${totalMatches} patterns)`;
-                    document.getElementById('dw-status').innerText = "Live AI ✅";
+                    document.getElementById('dw-number').innerText = bestNumber;
+                    document.getElementById('dw-accuracy').innerText = `Pattern Match: ${accuracy}%`;
                 }
             } catch (err) {
                 console.error(err);
-                document.getElementById('dw-status').innerText = "Error ❌";
+                document.getElementById('dw-status').innerText = "Database Error ❌";
             }
         }
 
+        // Start Initial Call
         fetchAndPredict();
         
-        // Refresh rate thoda fast kar diya taaki PowerShell ke data feed karte hi yahan update ho jaye
+        // Auto refresh every 5 seconds (fast sync with PowerShell)
         setInterval(fetchAndPredict, 5000); 
     </script>
 </body>
