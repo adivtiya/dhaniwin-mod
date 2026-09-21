@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dhaniwin Pro hack</title>
+    <title>Dhaniwin Pro AI Predictor</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: Arial, sans-serif; background-color: #0f172a; }
@@ -15,20 +15,30 @@
         }
         #floating-bubble:active { transform: scale(0.9); }
         #dw-predictor-widget {
-            display: none; position: fixed; bottom: 30px; right: 20px; width: 180px;
+            display: none; position: fixed; bottom: 30px; right: 20px; width: 220px;
             background: rgba(15, 23, 42, 0.95); border: 2px solid #eab308; border-radius: 12px;
             padding: 12px; color: white; z-index: 999999; box-shadow: 0 10px 25px rgba(0,0,0,0.7);
             text-align: center; backdrop-filter: blur(5px);
         }
         .close-btn { position: absolute; top: 5px; right: 8px; color: #ef4444; font-size: 14px; font-weight: bold; cursor: pointer; }
-        .dw-title { font-size: 13px; font-weight: bold; color: #eab308; margin-bottom: 8px; }
+        .dw-title { font-size: 13px; font-weight: bold; color: #eab308; margin-bottom: 8px; text-transform: uppercase; }
         .dw-period { font-size: 12px; color: #94a3b8; margin-bottom: 5px; font-weight: bold; }
-        .dw-label { font-size: 10px; color: #cbd5e1; }
-        .dw-pred { font-size: 26px; font-weight: 900; margin: 5px 0; letter-spacing: 1px; }
+        .dw-label { font-size: 10px; color: #cbd5e1; margin-top: 5px; }
+        .dw-pred { font-size: 28px; font-weight: 900; margin: 2px 0; letter-spacing: 1px; }
         .dw-big { color: #22c55e; }
         .dw-small { color: #ec4899; }
-        .dw-status { font-size: 10px; color: #64748b; margin-top: 5px; }
-        .dw-accuracy { font-size: 11px; color: #06b6d4; margin-top: 2px; font-weight: bold;}
+        
+        /* NEW PERFORMANCE METER STYLES */
+        #dw-risk-meter {
+            margin-top: 8px; padding: 6px; border-radius: 6px; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .perf-excellent { background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid #22c55e; box-shadow: 0 0 10px rgba(34, 197, 94, 0.4); }
+        .perf-avg { background: rgba(234, 179, 8, 0.2); color: #facc15; border: 1px solid #eab308; }
+        .perf-bad { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #ef4444; animation: blink 1s infinite; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+
+        .dw-accuracy { font-size: 11px; color: #06b6d4; margin-top: 6px; font-weight: bold;}
+        .dw-status { font-size: 10px; color: #64748b; margin-top: 6px; }
     </style>
 </head>
 <body>
@@ -39,10 +49,15 @@
 
     <div id="dw-predictor-widget">
         <div class="close-btn" onclick="togglePredictor(false)">✖</div>
-        <div class="dw-title">Pro AI Predictor</div>
+        <div class="dw-title">⚡ AI LIVE TRACKER ⚡</div>
         <div class="dw-period" id="dw-period">Target: Loading...</div>
+        
+        <!-- ACTUAL LIVE PERFORMANCE METER -->
+        <div id="dw-risk-meter" class="perf-avg">Testing AI...</div>
+
         <div class="dw-label">Expected Next Outcome:</div>
         <div class="dw-pred" id="dw-prediction">...</div>
+        
         <div class="dw-accuracy" id="dw-accuracy">Pattern Match: --%</div>
         <div class="dw-status" id="dw-status">Connecting...</div>
     </div>
@@ -59,47 +74,87 @@
 
         async function fetchAndPredict() {
             if (document.getElementById('dw-predictor-widget').style.display === 'none') return;
-            document.getElementById('dw-status').innerText = "Analyzing Patterns...";
+            document.getElementById('dw-status').innerText = "Analyzing Live Health...";
 
             try {
+                // Humein 80 rounds chahiye taaki AI pichle 20 rounds ko backtest kar sake properly
                 let { data: rounds, error } = await supabaseClient
                     .from('rounds')
                     .select('*')
                     .order('period', { ascending: false })
-                    .limit(40);
+                    .limit(80);
 
                 if (error) throw error;
 
-                if (rounds && rounds.length > 3) {
+                if (rounds && rounds.length > 25) {
                     const latest = rounds[0];
-                    
-                    // Asli Fix Yahan Hai (Agla Period nikalna)
                     let targetPeriodStr = "";
-                    try {
-                        targetPeriodStr = (BigInt(latest.period) + 1n).toString();
-                    } catch(e) {
-                        targetPeriodStr = (parseInt(latest.period) + 1).toString();
-                    }
+                    try { targetPeriodStr = (BigInt(latest.period) + 1n).toString(); } 
+                    catch(e) { targetPeriodStr = (parseInt(latest.period) + 1).toString(); }
 
                     document.getElementById('dw-period').innerText = "🎯 Target Period: ..." + targetPeriodStr.slice(-4);
 
-                    const history = rounds.map(r => r.outcome).reverse();
+                    const history = rounds.map(r => r.outcome); // 0 is newest, end is oldest
                     const patternLength = 3;
-                    const currentPattern = history.slice(-patternLength); 
                     
+                    // =======================================================
+                    // NEW ENGINE: BACKTESTING LAST 20 MINS (20 ROUNDS)
+                    // =======================================================
+                    let aiWins = 0;
+                    let aiLosses = 0;
+                    const testRounds = 20;
+
+                    for (let i = 0; i < testRounds; i++) {
+                        let actualResult = history[i];
+                        let pastPattern = [history[i+1], history[i+2], history[i+3]];
+                        let tBig = 0, tSmall = 0;
+
+                        // Check history OLDER than this specific round to see what AI would have guessed
+                        for (let k = i + 4; k <= history.length - patternLength; k++) {
+                            if (history[k] === pastPattern[0] && history[k+1] === pastPattern[1] && history[k+2] === pastPattern[2]) {
+                                let nextRes = history[k-1]; 
+                                if (nextRes === 'BIG') tBig++;
+                                if (nextRes === 'SMALL') tSmall++;
+                            }
+                        }
+
+                        let predicted = "";
+                        if (tBig > tSmall) predicted = 'BIG';
+                        else if (tSmall > tBig) predicted = 'SMALL';
+                        else predicted = pastPattern[2] === 'BIG' ? 'SMALL' : 'BIG'; 
+
+                        if (predicted === actualResult) aiWins++;
+                        else aiLosses++;
+                    }
+
+                    let liveAccuracy = Math.round((aiWins / testRounds) * 100);
+
+                    // =======================================================
+                    // UI SIGNAL UPDATE (Green / Yellow / Red)
+                    // =======================================================
+                    const riskMeterEl = document.getElementById('dw-risk-meter');
+                    
+                    if (liveAccuracy >= 55) {
+                        riskMeterEl.innerText = `🟢 SAFE (${liveAccuracy}% Win Rate)`;
+                        riskMeterEl.className = "perf-excellent";
+                    } else if (liveAccuracy >= 40 && liveAccuracy < 55) {
+                        riskMeterEl.innerText = `🟡 AVERAGE (${liveAccuracy}% Win Rate)`;
+                        riskMeterEl.className = "perf-avg";
+                    } else {
+                        riskMeterEl.innerText = `🔴 RUK JAO! (${liveAccuracy}% Win Rate)`;
+                        riskMeterEl.className = "perf-bad";
+                    }
+
+                    // =======================================================
+                    // ACTUAL PREDICTION FOR CURRENT ROUND (Target)
+                    // =======================================================
+                    const currentPattern = [history[0], history[1], history[2]];
                     let bigCount = 0;
                     let smallCount = 0;
 
-                    for (let i = 0; i <= history.length - patternLength - 1; i++) {
-                        let isMatch = true;
-                        for (let j = 0; j < patternLength; j++) {
-                            if (history[i + j] !== currentPattern[j]) {
-                                isMatch = false;
-                                break;
-                            }
-                        }
-                        if (isMatch) {
-                            let nextResult = history[i + patternLength];
+                    for (let k = 3; k <= history.length - patternLength; k++) {
+                        if (history[k] === currentPattern[0] && history[k+1] === currentPattern[1] && history[k+2] === currentPattern[2]) {
+                            let nextResult = history[k-1];
                             if (nextResult === 'BIG') bigCount++;
                             if (nextResult === 'SMALL') smallCount++;
                         }
@@ -129,7 +184,7 @@
                     predEl.innerText = finalPrediction;
                     predEl.className = 'dw-pred ' + (finalPrediction === 'BIG' ? 'dw-big' : 'dw-small');
                     
-                    document.getElementById('dw-accuracy').innerText = `Match: ${accuracy}% (${totalMatches} patterns)`;
+                    document.getElementById('dw-accuracy').innerText = `Pattern Match: ${accuracy}% (${totalMatches}x)`;
                     document.getElementById('dw-status').innerText = "Live AI ✅";
                 }
             } catch (err) {
@@ -139,8 +194,6 @@
         }
 
         fetchAndPredict();
-        
-        // Refresh rate thoda fast kar diya taaki PowerShell ke data feed karte hi yahan update ho jaye
         setInterval(fetchAndPredict, 5000); 
     </script>
 </body>
